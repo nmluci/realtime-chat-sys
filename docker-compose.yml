@@ -1,0 +1,13 @@
+version: '3.5'
+services:
+  backend:
+    container_name: realtime-chat-be
+    image: nmluci/realtime-chat-be
+    build:
+      context: .
+    restart: unless-stopped
+    volumes:
+      - ./conf:/app/conf
+      - ./migrations:/app/migrations
+    ports:
+      - "8080:8080"
