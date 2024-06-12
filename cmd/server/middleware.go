@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -41,9 +42,11 @@ var (
 
 type LiveChatSocketMiddleware struct {
 	UserID int64
+	ctx    context.Context
 	hub    *LiveChatHub
 	conn   *websocket.Conn
 	logger zerolog.Logger
+	repo   inrepo.Repository
 	in     chan dto.LiveChatSocketEvent
 }
 
@@ -58,9 +61,11 @@ func HandleLiveChatSocket(params *LiveChatSocketParams) echo.HandlerFunc {
 		}
 
 		client := &LiveChatSocketMiddleware{
+			ctx:    ctx,
 			hub:    params.Hub,
 			conn:   ws,
 			logger: params.Logger,
+			repo:   params.Repo,
 			in:     make(chan dto.LiveChatSocketEvent, 256),
 		}
 
@@ -173,6 +178,7 @@ func HandleLiveChatSocket(params *LiveChatSocketParams) echo.HandlerFunc {
 		}
 
 		client.hub.register <- client
+		client.ctx = context.Background()
 
 		bJson, err := json.Marshal(&dto.LiveChatSocketEvent{
 			EventName: inconst.LiveChatAuthAckEvent,
@@ -212,10 +218,89 @@ func (lc *LiveChatSocketMiddleware) Reader() {
 		if err != nil {
 			lc.logger.Error().Err(err).Msg("failed to parse msg")
 			lc.in <- dto.LiveChatSocketEvent{
-				EventName: "", // TODO: define const
+				EventName: inconst.LiveChatErrorMsgEvent,
 				Data:      "failed to parse msg",
 			}
 			break
+		}
+
+		switch event.EventName {
+		case inconst.LiveChatCreateRoomEvent:
+			if exists, err := lc.repo.FindRoom(lc.ctx, &indto.ChatRoomParams{RoomName: event.Data.(string)}); err != nil {
+				lc.logger.Error().Err(err).Msg("failed to fetch room data")
+				lc.in <- dto.LiveChatSocketEvent{
+					EventName: inconst.LiveChatErrorMsgEvent,
+					Data:      "failed to fetch room data",
+				}
+				continue
+			} else if exists != nil {
+				lc.logger.Error().Err(err).Msg("room already exists")
+				lc.in <- dto.LiveChatSocketEvent{
+					EventName: inconst.LiveChatErrorMsgEvent,
+					Data:      "room already exists",
+				}
+				continue
+			}
+
+			if err = lc.repo.CreateRoom(lc.ctx, &model.ChatRoom{RoomName: event.Data.(string)}); err != nil {
+				lc.logger.Error().Err(err).Msg("failed to create room data")
+				lc.in <- dto.LiveChatSocketEvent{
+					EventName: inconst.LiveChatErrorMsgEvent,
+					Data:      "failed to create room data",
+				}
+				continue
+			}
+
+			lc.in <- dto.LiveChatSocketEvent{
+				EventName: inconst.LiveChatCreatedEvent,
+			}
+			continue
+		case inconst.LiveChatJoinRoomEvent:
+			roomMeta, err := lc.repo.FindRoom(lc.ctx, &indto.ChatRoomParams{RoomName: event.Data.(string)})
+			if err != nil {
+				lc.logger.Error().Err(err).Msg("failed to fetch room data")
+				lc.in <- dto.LiveChatSocketEvent{
+					EventName: inconst.LiveChatErrorMsgEvent,
+					Data:      "failed to fetch room data",
+				}
+				continue
+			} else if roomMeta == nil {
+				lc.logger.Error().Err(err).Msg("room doesnt exists")
+				lc.in <- dto.LiveChatSocketEvent{
+					EventName: inconst.LiveChatErrorMsgEvent,
+					Data:      "room doesnt exists",
+				}
+				continue
+			}
+
+			lc.hub.JoinRoom(roomMeta.ID, lc)
+			lc.in <- dto.LiveChatSocketEvent{
+				EventName: inconst.LiveChatJoinedEvent,
+			}
+			continue
+		case inconst.LiveChatLeaveRoomEvent:
+			roomMeta, err := lc.repo.FindRoom(lc.ctx, &indto.ChatRoomParams{RoomName: event.Data.(string)})
+			if err != nil {
+				lc.logger.Error().Err(err).Msg("failed to fetch room data")
+				lc.in <- dto.LiveChatSocketEvent{
+					EventName: inconst.LiveChatErrorMsgEvent,
+					Data:      "failed to fetch room data",
+				}
+				continue
+			} else if roomMeta == nil {
+				lc.logger.Error().Err(err).Msg("room doesnt exists")
+				lc.in <- dto.LiveChatSocketEvent{
+					EventName: inconst.LiveChatErrorMsgEvent,
+					Data:      "room doesnt exists",
+				}
+				continue
+			}
+
+			lc.hub.LeaveRoom(roomMeta.ID, lc)
+			lc.in <- dto.LiveChatSocketEvent{
+				EventName: inconst.LiveChatLeftEvent,
+			}
+			continue
 		}
 	}
 }

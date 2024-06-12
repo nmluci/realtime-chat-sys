@@ -9,8 +9,14 @@ import (
 )
 
 type Repository interface {
+	// ----- Users
 	FindUser(context.Context, *indto.UserParams) (*model.User, error)
 	InsertUser(context.Context, *model.User) error
+
+	// ----- Users
+	FindRooms(context.Context, *indto.ChatRoomParams) ([]*model.ChatRoom, error)
+	FindRoom(context.Context, *indto.ChatRoomParams) (*model.ChatRoom, error)
+	CreateRoom(context.Context, *model.ChatRoom) error
 }
 
 type repository struct {

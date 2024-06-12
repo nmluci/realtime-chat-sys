@@ -7,6 +7,7 @@ import (
 
 type LiveChatHub struct {
 	connectionPool map[int64]*LiveChatSocketMiddleware
+	rooms          *rooms
 	broadcast      chan dto.LiveChatSocketEvent
 	register       chan *LiveChatSocketMiddleware
 	unregister     chan *LiveChatSocketMiddleware
@@ -24,6 +25,7 @@ type LiveChatHubParms struct {
 func NewLiveChatHub(params *LiveChatHubParms) *LiveChatHub {
 	return &LiveChatHub{
 		connectionPool: make(map[int64]*LiveChatSocketMiddleware),
+		rooms:          newRooms(),
 		broadcast:      make(chan dto.LiveChatSocketEvent),
 		register:       make(chan *LiveChatSocketMiddleware),
 		unregister:     make(chan *LiveChatSocketMiddleware),
@@ -37,10 +39,10 @@ func (lc *LiveChatHub) Run() {
 	for {
 		select {
 		case conn := <-lc.register:
-			lc.connectionPool[0] = conn // TODO: assign distictive ID
+			lc.connectionPool[conn.UserID] = conn
 		case conn := <-lc.unregister:
-			if _, ok := lc.connectionPool[0]; ok {
-				delete(lc.connectionPool, 0)
+			if _, ok := lc.connectionPool[conn.UserID]; ok {
+				delete(lc.connectionPool, conn.UserID)
 				close(conn.in)
 			}
 		case msg := <-lc.broadcast:
@@ -66,4 +68,12 @@ func (lc *LiveChatHub) Run() {
 		}
 
 	}
+}
+
+func (lc *LiveChatHub) JoinRoom(roomID int64, conn *LiveChatSocketMiddleware) {
+	lc.rooms.JoinRoom(roomID, conn)
+}
+
+func (lc *LiveChatHub) LeaveRoom(roomID int64, conn *LiveChatSocketMiddleware) {
+	lc.rooms.LeaveRoom(roomID, conn)
 }

@@ -5,7 +5,7 @@ const (
 	LiveChatAuthSignupEvent  = LiveChatBaseEvent + "auth:signup"
 	LiveChatAuthLoginEvent   = LiveChatBaseEvent + "auth:login"
 	LiveChatAuthAckEvent     = LiveChatBaseEvent + "auth:ack"
-	LiveChatCreateRoomEvent  = LiveChatBaseEvent + "chat:created_room"
+	LiveChatCreateRoomEvent  = LiveChatBaseEvent + "chat:create_room"
 	LiveChatCreatedEvent     = LiveChatBaseEvent + "chat:created"
 	LiveChatJoinRoomEvent    = LiveChatBaseEvent + "chat:join_room"
 	LiveChatJoinedEvent      = LiveChatBaseEvent + "chat:joined"
