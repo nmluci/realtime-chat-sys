@@ -12,7 +12,7 @@ type LiveChatHub struct {
 	unregister     chan *LiveChatSocketMiddleware
 	logger         zerolog.Logger
 	msgChan        chan *dto.LiveChatSocketRequest
-	done           chan int
+	doneChan       chan int
 }
 
 type LiveChatHubParms struct {
@@ -29,7 +29,7 @@ func NewLiveChatHub(params *LiveChatHubParms) *LiveChatHub {
 		unregister:     make(chan *LiveChatSocketMiddleware),
 		logger:         params.Logger,
 		msgChan:        params.MsgChan,
-		done:           params.DoneChan,
+		doneChan:       params.DoneChan,
 	}
 }
 
