@@ -25,12 +25,16 @@ func StartClient(logger zerolog.Logger) {
 	defer c.Close()
 
 	client := &LiveClient{
-		logger: &logger,
-		conn:   c,
+		username:   "",
+		logger:     &logger,
+		conn:       c,
+		writerChan: make(chan dto.LiveChatSocketEvent),
 	}
 
 	msg := &dto.LiveChatSocketEvent{}
 	authenticated := false
+
+	connectedRoomName := ""
 
 	for !authenticated {
 		fmt.Printf("1. Login\n2. Sign Up\n9. Exit\n")
@@ -111,4 +115,84 @@ func StartClient(logger zerolog.Logger) {
 		}
 	}
 
+	go client.reader()
+	go client.writer()
+
+	exit := false
+	for !exit {
+		fmt.Printf("1. Create Room\n2. Join Room\n3. Leave Room\n4. Send DM\n5. Send Message to Room\n9. Exit\n")
+		fmt.Printf("Option: ")
+
+		var opt int64
+		fmt.Scanf("%d\n", &opt)
+
+		switch opt {
+		case 1:
+			var roomName string
+			fmt.Printf("Room name: ")
+			fmt.Scanf("%s\n", &roomName)
+
+			client.writerChan <- dto.LiveChatSocketEvent{
+				EventName: inconst.LiveChatCreateRoomEvent,
+				Data:      roomName,
+			}
+		case 2:
+			var roomName string
+			fmt.Printf("Room name: ")
+			_, err := fmt.Scanf("%s\n", &roomName)
+			if err != nil {
+				logger.Error().Err(err).Send()
+			}
+
+			fmt.Printf("room")
+			connectedRoomName = roomName
+			client.writerChan <- dto.LiveChatSocketEvent{
+				EventName: inconst.LiveChatJoinRoomEvent,
+				Data:      roomName,
+			}
+		case 3:
+			var roomName string
+			fmt.Printf("Room name: ")
+			fmt.Scanf("%s\n", &roomName)
+
+			connectedRoomName = ""
+			client.writerChan <- dto.LiveChatSocketEvent{
+				EventName: inconst.LiveChatLeaveRoomEvent,
+				Data:      roomName,
+			}
+		case 4:
+			var recipient, content string
+			fmt.Printf("Recipient username: ")
+			fmt.Scanf("%s\n", &recipient)
+
+			fmt.Printf("Content: ")
+			fmt.Scanf("%s\n", &content)
+
+			client.writerChan <- dto.LiveChatSocketEvent{
+				EventName: inconst.LiveChatSendDirectMsgEvent,
+				Data: dto.ChatDMPayload{
+					RecipientUsername: recipient,
+					Content:           content,
+				},
+			}
+		case 5:
+			if connectedRoomName == "" {
+				continue
+			}
+
+			fmt.Printf("Current Connected Room: %s\n", connectedRoomName)
+
+			var content string
+			fmt.Printf("Content: ")
+			fmt.Scanf("%s\n", &content)
+
+			client.writerChan <- dto.LiveChatSocketEvent{
+				EventName: inconst.LiveChatSendRoomMsgEvent,
+				Data:      content,
+			}
+		case 9:
+			exit = true
+			os.Exit(0)
+		}
+	}
 }
