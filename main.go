@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/nmluci/realtime-chat-sys/cmd/client"
 	"github.com/nmluci/realtime-chat-sys/cmd/server"
 	"github.com/nmluci/realtime-chat-sys/internal/component"
 	"github.com/nmluci/realtime-chat-sys/internal/config"
@@ -44,6 +45,7 @@ func main() {
 	case "server":
 		server.StartServer(conf, logger)
 	case "client":
+		client.StartClient(logger)
 		fmt.Println("unimplemented lol")
 	}
 }
