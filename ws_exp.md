@@ -28,6 +28,12 @@
   	"data": "ehe room"
 }
 
+// send to room
+{
+	"event": "livechat:msg:room:send",
+  	"data": "ehe to room"
+}
+
 
 // dm
 

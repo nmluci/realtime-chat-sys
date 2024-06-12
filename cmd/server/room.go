@@ -14,7 +14,7 @@ func newRooms() *rooms {
 	}
 }
 
-func (r *rooms) JoinRoom(roomID int64, conn *LiveChatSocketMiddleware) {
+func (r *rooms) joinRoom(roomID int64, conn *LiveChatSocketMiddleware) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -29,7 +29,7 @@ func (r *rooms) JoinRoom(roomID int64, conn *LiveChatSocketMiddleware) {
 
 }
 
-func (r *rooms) LeaveRoom(roomID int64, conn *LiveChatSocketMiddleware) {
+func (r *rooms) leaveRoom(roomID int64, conn *LiveChatSocketMiddleware) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -40,4 +40,8 @@ func (r *rooms) LeaveRoom(roomID int64, conn *LiveChatSocketMiddleware) {
 			delete(r.rooms, roomID)
 		}
 	}
+}
+
+func (r *rooms) getRoom(roomID int64) map[int64]*LiveChatSocketMiddleware {
+	return r.rooms[roomID]
 }

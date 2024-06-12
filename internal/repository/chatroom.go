@@ -40,7 +40,7 @@ func (r *repository) FindRoom(ctx context.Context, params *indto.ChatRoomParams)
 		cond = append(cond, squirrel.Eq{"room_name": params.RoomName})
 	}
 
-	stmt, args, err := squirrel.Select("r.id", "r.room_name", "r.is_dm").From("rooms r").
+	stmt, args, err := squirrel.Select("r.id", "r.room_name").From("rooms r").
 		LeftJoin("room_participants rp on r.id = rp.room_id and rp.user_id = ?", params.UserID).
 		Where(cond).ToSql()
 	if err != nil {
@@ -63,8 +63,8 @@ func (r *repository) FindRoom(ctx context.Context, params *indto.ChatRoomParams)
 func (r *repository) CreateRoom(ctx context.Context, params *model.ChatRoom) (err error) {
 	logger := zerolog.Ctx(ctx)
 
-	stmt, args, err := squirrel.Insert("rooms").Columns("room_name", "is_dm").
-		Values(params.RoomName, params.IsDM).ToSql()
+	stmt, args, err := squirrel.Insert("rooms").Columns("room_name").
+		Values(params.RoomName).ToSql()
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to generate sql")
 		return

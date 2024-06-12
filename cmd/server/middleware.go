@@ -41,13 +41,16 @@ var (
 )
 
 type LiveChatSocketMiddleware struct {
-	UserID int64
-	ctx    context.Context
-	hub    *LiveChatHub
-	conn   *websocket.Conn
-	logger zerolog.Logger
-	repo   inrepo.Repository
-	in     chan dto.LiveChatSocketEvent
+	UserID       int64
+	username     string
+	ctx          context.Context
+	hub          *LiveChatHub
+	conn         *websocket.Conn
+	logger       zerolog.Logger
+	repo         inrepo.Repository
+	in           chan dto.LiveChatSocketEvent
+	activeRoomID int64
+	isDM         bool
 }
 
 func HandleLiveChatSocket(params *LiveChatSocketParams) echo.HandlerFunc {
@@ -127,6 +130,7 @@ func HandleLiveChatSocket(params *LiveChatSocketParams) echo.HandlerFunc {
 				}
 
 				client.UserID = userMeta.ID
+				client.username = userMeta.Username
 				authenticated = true
 
 				params.Logger.Info().Str("username", userMeta.Username).Msg("user logged in")
@@ -277,9 +281,13 @@ func (lc *LiveChatSocketMiddleware) Reader() {
 			lc.in <- dto.LiveChatSocketEvent{
 				EventName: inconst.LiveChatJoinedEvent,
 			}
+			lc.activeRoomID = roomMeta.ID
+
 			continue
 		case inconst.LiveChatLeaveRoomEvent:
-			roomMeta, err := lc.repo.FindRoom(lc.ctx, &indto.ChatRoomParams{RoomName: event.Data.(string)})
+			roomID := lc.activeRoomID
+
+			roomMeta, err := lc.repo.FindRoom(lc.ctx, &indto.ChatRoomParams{ID: roomID})
 			if err != nil {
 				lc.logger.Error().Err(err).Msg("failed to fetch room data")
 				lc.in <- dto.LiveChatSocketEvent{
@@ -300,7 +308,24 @@ func (lc *LiveChatSocketMiddleware) Reader() {
 			lc.in <- dto.LiveChatSocketEvent{
 				EventName: inconst.LiveChatLeftEvent,
 			}
+			lc.activeRoomID = 0
+
 			continue
+		case inconst.LiveChatSendRoomMsgEvent:
+			incomingMessage := &indto.IncomingMessage{
+				SenderID:   lc.UserID,
+				SenderName: lc.username,
+				Content:    event.Data.(string),
+				IsDM:       false,
+			}
+
+			lc.hub.broadcast <- dto.LiveChatBroadcastEvent{
+				Room: lc.activeRoomID,
+				Event: dto.LiveChatSocketEvent{
+					EventName: inconst.LiveChatIncomingMsgEvent,
+					Data:      incomingMessage,
+				},
+			}
 		}
 	}
 }

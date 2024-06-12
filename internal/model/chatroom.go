@@ -3,8 +3,6 @@ package model
 type ChatRoom struct {
 	ID       int64  `db:"id"`
 	RoomName string `db:"room_name"`
-	IsDM     bool   `db:"is_dm"`
-	IsJoined bool   `db:"is_joined"`
 }
 
 type RoomParticipant struct {

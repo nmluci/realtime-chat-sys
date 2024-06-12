@@ -8,7 +8,7 @@ import (
 type LiveChatHub struct {
 	connectionPool map[int64]*LiveChatSocketMiddleware
 	rooms          *rooms
-	broadcast      chan dto.LiveChatSocketEvent
+	broadcast      chan dto.LiveChatBroadcastEvent
 	register       chan *LiveChatSocketMiddleware
 	unregister     chan *LiveChatSocketMiddleware
 	logger         zerolog.Logger
@@ -26,7 +26,7 @@ func NewLiveChatHub(params *LiveChatHubParms) *LiveChatHub {
 	return &LiveChatHub{
 		connectionPool: make(map[int64]*LiveChatSocketMiddleware),
 		rooms:          newRooms(),
-		broadcast:      make(chan dto.LiveChatSocketEvent),
+		broadcast:      make(chan dto.LiveChatBroadcastEvent),
 		register:       make(chan *LiveChatSocketMiddleware),
 		unregister:     make(chan *LiveChatSocketMiddleware),
 		logger:         params.Logger,
@@ -46,34 +46,35 @@ func (lc *LiveChatHub) Run() {
 				close(conn.in)
 			}
 		case msg := <-lc.broadcast:
-			for k, conn := range lc.connectionPool {
+			connMap := lc.rooms.getRoom(msg.Room)
+
+			event := msg.Event
+			for k, conn := range connMap {
 				select {
-				case conn.in <- msg:
+				case conn.in <- event:
 				default:
 					close(conn.in)
 					delete(lc.connectionPool, k)
 				}
 			}
 		case msg := <-lc.msgChan:
-			conn, ok := lc.connectionPool[0]
+			recipient, ok := lc.connectionPool[msg.RecipientID]
 			if !ok {
-				lc.logger.Warn().Msg("msg for conn dropped") // TODO: reword warn msg
+				lc.logger.Warn().Msg("message dropped due to recipient unreachable")
 				continue
 			}
 
-			conn.in <- dto.LiveChatSocketEvent{
-				EventName: "",
-				Data:      msg,
-			}
+			recipient.in <- msg.Event
+			lc.connectionPool[msg.SenderID].in <- msg.Event
 		}
 
 	}
 }
 
 func (lc *LiveChatHub) JoinRoom(roomID int64, conn *LiveChatSocketMiddleware) {
-	lc.rooms.JoinRoom(roomID, conn)
+	lc.rooms.joinRoom(roomID, conn)
 }
 
 func (lc *LiveChatHub) LeaveRoom(roomID int64, conn *LiveChatSocketMiddleware) {
-	lc.rooms.LeaveRoom(roomID, conn)
+	lc.rooms.leaveRoom(roomID, conn)
 }
