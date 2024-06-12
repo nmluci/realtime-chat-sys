@@ -8,7 +8,7 @@ import (
 	"github.com/nmluci/realtime-chat-sys/cmd/server"
 	"github.com/nmluci/realtime-chat-sys/internal/component"
 	"github.com/nmluci/realtime-chat-sys/internal/config"
-	"github.com/nmluci/realtime-chat-sys/pkg/dto/initutil"
+	"github.com/nmluci/realtime-chat-sys/pkg/initutil"
 )
 
 var (

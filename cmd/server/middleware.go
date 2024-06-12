@@ -8,9 +8,14 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/nmluci/realtime-chat-sys/internal/inconst"
+	"github.com/nmluci/realtime-chat-sys/internal/indto"
+	"github.com/nmluci/realtime-chat-sys/internal/model"
 	inrepo "github.com/nmluci/realtime-chat-sys/internal/repository"
 	"github.com/nmluci/realtime-chat-sys/pkg/dto"
+	"github.com/nmluci/realtime-chat-sys/pkg/errs"
+	"github.com/nmluci/realtime-chat-sys/pkg/structutil"
 	"github.com/rs/zerolog"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -35,6 +40,7 @@ var (
 )
 
 type LiveChatSocketMiddleware struct {
+	UserID int64
 	hub    *LiveChatHub
 	conn   *websocket.Conn
 	logger zerolog.Logger
@@ -43,6 +49,8 @@ type LiveChatSocketMiddleware struct {
 
 func HandleLiveChatSocket(params *LiveChatSocketParams) echo.HandlerFunc {
 	return func(c echo.Context) (err error) {
+		ctx := c.Request().Context()
+
 		ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 		if err != nil {
 			params.Logger.Error().Err(err).Msg("failed to upgrade connection to WS")
@@ -56,22 +64,118 @@ func HandleLiveChatSocket(params *LiveChatSocketParams) echo.HandlerFunc {
 			in:     make(chan dto.LiveChatSocketEvent, 256),
 		}
 
+		authenticated := false
 		msg := &dto.LiveChatSocketEvent{}
-		if err := ws.ReadJSON(msg); err != nil {
-			params.Logger.Error().Err(err).Msg("failed to parse initial msg")
-			ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, err.Error()), time.Now().Add(time.Second))
-			ws.Close()
-			return nil
-		} else if msg.EventName != inconst.LiveChatAuthLoginEvent {
-			ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), time.Now().Add(time.Second))
-			ws.Close()
-			return nil
+
+		sendMessage := func(msg any) (err error) {
+			if v, ok := msg.(error); ok {
+				msg = v.Error()
+			}
+
+			bJson, err := json.Marshal(dto.LiveChatSocketEvent{
+				EventName: inconst.LiveChatErrorMsgEvent,
+				Data:      msg,
+			})
+			if err != nil {
+				params.Logger.Error().Err(err).Msg("failed to marshal msg")
+				return
+			}
+
+			err = ws.WriteMessage(websocket.TextMessage, bJson)
+			if err != nil {
+				params.Logger.Error().Err(err).Msg("failed to write msg")
+				return
+			}
+
+			return
+		}
+
+		for !authenticated {
+			if err := ws.ReadJSON(msg); err != nil {
+				params.Logger.Error().Err(err).Msg("failed to parse initial msg")
+				ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, err.Error()), time.Now().Add(time.Second))
+				ws.Close()
+				return nil
+			}
+
+			switch msg.EventName {
+			case inconst.LiveChatAuthLoginEvent:
+				cred := structutil.MapToStruct[*dto.AuthLoginPayload](msg.Data.(map[string]any))
+				if cred == nil {
+					client.logger.Error().Err(err).Msg("failed to parse msg body")
+					continue
+				}
+
+				userMeta, err := params.Repo.FindUser(ctx, &indto.UserParams{Username: cred.Username})
+				if err != nil || userMeta == nil {
+					params.Logger.Error().Err(err).Msg("failed to validate user")
+
+					sendMessage(errs.ErrInvalidCred)
+					continue
+				}
+
+				if err = bcrypt.CompareHashAndPassword([]byte(userMeta.Password), []byte(cred.Password)); err != nil {
+					params.Logger.Error().Err(err).Msg("failed to validate credentials")
+
+					sendMessage(errs.ErrInvalidCred)
+					continue
+				}
+
+				client.UserID = userMeta.ID
+				authenticated = true
+
+				params.Logger.Info().Str("username", userMeta.Username).Msg("user logged in")
+			case inconst.LiveChatAuthSignupEvent:
+				cred := structutil.MapToStruct[*dto.AuthLoginPayload](msg.Data.(map[string]any))
+				if cred == nil {
+					client.logger.Error().Err(err).Msg("failed to parse msg body")
+					continue
+				}
+
+				userMeta, err := params.Repo.FindUser(ctx, &indto.UserParams{Username: cred.Username})
+				if err != nil {
+					params.Logger.Error().Err(err).Msg("failed to validate user")
+
+					sendMessage(errs.ErrInvalidCred)
+					continue
+				}
+
+				if userMeta != nil {
+					sendMessage(errs.ErrUserExisted)
+					continue
+				}
+
+				hashed, err := bcrypt.GenerateFromPassword([]byte(cred.Password), bcrypt.DefaultCost)
+				if err != nil {
+					params.Logger.Error().Err(err).Msg("failed to hash password")
+
+					sendMessage(errs.ErrUnknown)
+					continue
+				}
+
+				newUser := &model.User{
+					Username: cred.Username,
+					Password: string(hashed),
+				}
+
+				err = params.Repo.InsertUser(ctx, newUser)
+				if err != nil {
+					params.Logger.Error().Err(err).Msg("failed to save usermeta")
+
+					sendMessage(errs.ErrUnknown)
+					continue
+				}
+
+				sendMessage("ok")
+			default:
+				sendMessage("not yet authenticated")
+			}
 		}
 
 		client.hub.register <- client
 
 		bJson, err := json.Marshal(&dto.LiveChatSocketEvent{
-			EventName: "",
+			EventName: inconst.LiveChatAuthAckEvent,
 			Data:      nil,
 		})
 		if err != nil {

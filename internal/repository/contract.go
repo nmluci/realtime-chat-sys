@@ -1,8 +1,16 @@
 package repository
 
-import "github.com/jmoiron/sqlx"
+import (
+	"context"
+
+	"github.com/jmoiron/sqlx"
+	"github.com/nmluci/realtime-chat-sys/internal/indto"
+	"github.com/nmluci/realtime-chat-sys/internal/model"
+)
 
 type Repository interface {
+	FindUser(context.Context, *indto.UserParams) (*model.User, error)
+	InsertUser(context.Context, *model.User) error
 }
 
 type repository struct {
