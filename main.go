@@ -7,6 +7,12 @@ import (
 
 	"github.com/nmluci/realtime-chat-sys/cmd/server"
 	"github.com/nmluci/realtime-chat-sys/internal/component"
+	"github.com/nmluci/realtime-chat-sys/internal/config"
+	"github.com/nmluci/realtime-chat-sys/pkg/dto/initutil"
+)
+
+var (
+	environment string = "local"
 )
 
 func main() {
@@ -17,8 +23,13 @@ func main() {
 
 	time.Local = loc
 
+	config.Init(environment)
+	conf := config.Get()
+
+	initutil.InitDirectory()
+
 	logger := component.NewLogger(component.NewLoggerParams{
-		ServiceName: "realtime-chat",
+		ServiceName: conf.ServiceName,
 		PrettyPrint: true,
 	})
 
@@ -31,7 +42,7 @@ func main() {
 
 	switch os.Args[1] {
 	case "server":
-		server.StartServer(logger)
+		server.StartServer(conf, logger)
 	case "client":
 		fmt.Println("unimplemented lol")
 	}

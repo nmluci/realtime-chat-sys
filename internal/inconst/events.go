@@ -1,15 +1,15 @@
 package inconst
 
 const (
-	liveChatBaseEvent   = "livechat:"
-	liveChatAuthLogin   = "auth:login"
-	liveChatAuthAck     = "auth:ack"
-	liveChatCreateRoom  = "chat:created_room"
-	liveChatCreated     = "chat:created"
-	liveChatJoinRoom    = "chat:join_room"
-	liveChatJoined      = "chat:joined"
-	liveChatLeaveRoom   = "chat:leave_room"
-	liveChatLeft        = "chat:left"
-	liveChatIncomingMsg = "msg:incoming"
-	liveChatSendMsg     = "msg:send"
+	LiveChatBaseEvent        = "livechat:"
+	LiveChatAuthLoginEvent   = "auth:login"
+	LiveChatAuthAckEvent     = "auth:ack"
+	LiveChatCreateRoomEvent  = "chat:created_room"
+	LiveChatCreatedEvent     = "chat:created"
+	LiveChatJoinRoomEvent    = "chat:join_room"
+	LiveChatJoinedEvent      = "chat:joined"
+	LiveChatLeaveRoomEvent   = "chat:leave_room"
+	LiveChatLeftEvent        = "chat:left"
+	LiveChatIncomingMsgEvent = "msg:incoming"
+	LiveChatSendMsgEvent     = "msg:send"
 )

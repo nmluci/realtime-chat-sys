@@ -9,9 +9,9 @@ RUN go mod tidy
 
 COPY . /app/
 
-ARG BUILD_TAG
+ARG BUILD_ENV
 
-RUN CGO_ENABLED=0 go build -o /app/main -ldflags="-X 'main.buildVer=${BUILD_TAG}'"
+RUN CGO_ENABLED=0 go build -o /app/main -ldflags="-X 'main.environment=${BUILD_ENV}'"
 
 # Deploy
 

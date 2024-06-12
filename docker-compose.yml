@@ -5,9 +5,14 @@ services:
     image: nmluci/realtime-chat-be
     build:
       context: .
+      args:
+        BUILD_ENV: prod
     restart: unless-stopped
     volumes:
       - ./conf:/app/conf
       - ./migrations:/app/migrations
+      - server_data:/appdata
     ports:
       - "8080:8080"
+volumes:
+  server_data: {}

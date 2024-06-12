@@ -7,6 +7,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
+	"github.com/nmluci/realtime-chat-sys/internal/inconst"
+	inrepo "github.com/nmluci/realtime-chat-sys/internal/repository"
 	"github.com/nmluci/realtime-chat-sys/pkg/dto"
 	"github.com/rs/zerolog"
 )
@@ -19,6 +21,7 @@ const (
 )
 
 type LiveChatSocketParams struct {
+	Repo   inrepo.Repository
 	Logger zerolog.Logger
 	Hub    *LiveChatHub
 }
@@ -32,12 +35,10 @@ var (
 )
 
 type LiveChatSocketMiddleware struct {
-	hub      *LiveChatHub
-	conn     *websocket.Conn
-	logger   zerolog.Logger
-	in       chan dto.LiveChatSocketEvent
-	retry    chan dto.LiveChatSocketEvent
-	retryMap map[string]struct{}
+	hub    *LiveChatHub
+	conn   *websocket.Conn
+	logger zerolog.Logger
+	in     chan dto.LiveChatSocketEvent
 }
 
 func HandleLiveChatSocket(params *LiveChatSocketParams) echo.HandlerFunc {
@@ -49,12 +50,10 @@ func HandleLiveChatSocket(params *LiveChatSocketParams) echo.HandlerFunc {
 		}
 
 		client := &LiveChatSocketMiddleware{
-			hub:      params.Hub,
-			conn:     ws,
-			logger:   params.Logger,
-			in:       make(chan dto.LiveChatSocketEvent, 256),
-			retry:    make(chan dto.LiveChatSocketEvent, 256),
-			retryMap: make(map[string]struct{}),
+			hub:    params.Hub,
+			conn:   ws,
+			logger: params.Logger,
+			in:     make(chan dto.LiveChatSocketEvent, 256),
 		}
 
 		msg := &dto.LiveChatSocketEvent{}
@@ -63,7 +62,7 @@ func HandleLiveChatSocket(params *LiveChatSocketParams) echo.HandlerFunc {
 			ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, err.Error()), time.Now().Add(time.Second))
 			ws.Close()
 			return nil
-		} else if msg.EventName != "" { // TODO: set cond
+		} else if msg.EventName != inconst.LiveChatAuthLoginEvent {
 			ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), time.Now().Add(time.Second))
 			ws.Close()
 			return nil
