@@ -41,7 +41,7 @@ func StartServer(conf *config.Config, logger zerolog.Logger) {
 
 	ec.Any("/api/v1/chat", HandleLiveChatSocket(
 		&LiveChatSocketParams{
-			Logger: logger,
+			Logger: &logger,
 			Hub:    chatHub,
 			Repo:   repo,
 		}),

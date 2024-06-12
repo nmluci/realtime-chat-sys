@@ -28,7 +28,7 @@ const (
 
 type LiveChatSocketParams struct {
 	Repo   inrepo.Repository
-	Logger zerolog.Logger
+	Logger *zerolog.Logger
 	Hub    *LiveChatHub
 }
 
@@ -46,7 +46,7 @@ type LiveChatSocketMiddleware struct {
 	ctx          context.Context
 	hub          *LiveChatHub
 	conn         *websocket.Conn
-	logger       zerolog.Logger
+	logger       *zerolog.Logger
 	repo         inrepo.Repository
 	in           chan dto.LiveChatSocketEvent
 	activeRoomID int64
@@ -55,7 +55,8 @@ type LiveChatSocketMiddleware struct {
 
 func HandleLiveChatSocket(params *LiveChatSocketParams) echo.HandlerFunc {
 	return func(c echo.Context) (err error) {
-		ctx := c.Request().Context()
+		l := params.Logger.With().Logger()
+		ctx := l.WithContext(context.Background())
 
 		ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 		if err != nil {
@@ -319,6 +320,20 @@ func (lc *LiveChatSocketMiddleware) Reader() {
 				IsDM:       false,
 			}
 
+			err := lc.repo.InsertChatHistory(lc.ctx, &model.ChatHistory{
+				RoomID:   lc.activeRoomID,
+				SenderID: lc.UserID,
+				Message:  event.Data.(string),
+			})
+			if err != nil {
+				lc.logger.Error().Err(err).Msg("failed to save message")
+				lc.in <- dto.LiveChatSocketEvent{
+					EventName: inconst.LiveChatErrorMsgEvent,
+					Data:      "failed to save message",
+				}
+				continue
+			}
+
 			lc.hub.broadcast <- dto.LiveChatBroadcastEvent{
 				Room: lc.activeRoomID,
 				Event: dto.LiveChatSocketEvent{
@@ -356,6 +371,20 @@ func (lc *LiveChatSocketMiddleware) Reader() {
 				continue
 			}
 
+			err = lc.repo.InsertChatHistory(lc.ctx, &model.ChatHistory{
+				SenderID:    lc.UserID,
+				RecipientID: recipientMeta.ID,
+				Message:     payload.Content,
+			})
+			if err != nil {
+				lc.logger.Error().Err(err).Msg("failed to save message")
+				lc.in <- dto.LiveChatSocketEvent{
+					EventName: inconst.LiveChatErrorMsgEvent,
+					Data:      "failed to save message",
+				}
+				continue
+			}
+
 			lc.hub.msgChan <- &dto.LiveChatSocketRequest{
 				SenderID:    lc.UserID,
 				RecipientID: recipientMeta.ID,
@@ -364,6 +393,54 @@ func (lc *LiveChatSocketMiddleware) Reader() {
 					Data:      incomingMessage,
 				},
 			}
+			// case inconst.LiveChatRoomLogEvent:
+			// 	msg, err := lc.repo.FindChatHistory(lc.ctx, &indto.ChatHistoryParams{RoomID: lc.activeRoomID})
+			// 	if err != nil {
+			// 		lc.logger.Error().Err(err).Msg("failed to get message log")
+			// 		lc.in <- dto.LiveChatSocketEvent{
+			// 			EventName: inconst.LiveChatErrorMsgEvent,
+			// 			Data:      "failed to get message log",
+			// 		}
+			// 		continue
+			// 	}
+
+			// 	pastMessage := []*indto.IncomingMessage{}
+			// 	for _, m := range msg {
+			// 		pastMessage = append(pastMessage, &indto.IncomingMessage{
+			// 			SenderID:   m.SenderID,
+			// 			SenderName: m.SenderName,
+			// 			Content:    m.Message,
+			// 		})
+			// 	}
+
+			// 	lc.in <- dto.LiveChatSocketEvent{
+			// 		EventName: inconst.LiveChatMsgLogEvent,
+			// 		Data:      pastMessage,
+			// 	}
+			// case inconst.LiveChatDirectLogEvent:
+			// 	msg, err := lc.repo.FindChatHistory(lc.ctx, &indto.ChatHistoryParams{UserID: })
+			// 	if err != nil {
+			// 		lc.logger.Error().Err(err).Msg("failed to get message log")
+			// 		lc.in <- dto.LiveChatSocketEvent{
+			// 			EventName: inconst.LiveChatErrorMsgEvent,
+			// 			Data:      "failed to get message log",
+			// 		}
+			// 		continue
+			// 	}
+
+			// 	pastMessage := []*indto.IncomingMessage{}
+			// 	for _, m := range msg {
+			// 		pastMessage = append(pastMessage, &indto.IncomingMessage{
+			// 			SenderID:   m.SenderID,
+			// 			SenderName: m.SenderName,
+			// 			Content:    m.Message,
+			// 		})
+			// 	}
+
+			// 	lc.in <- dto.LiveChatSocketEvent{
+			// 		EventName: inconst.LiveChatMsgLogEvent,
+			// 		Data:      pastMessage,
+			// 	}
 		}
 	}
 }

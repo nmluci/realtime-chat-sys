@@ -14,7 +14,6 @@
 }
 
 
-
 // join room
 {
 	"event": "livechat:chat:join_room",

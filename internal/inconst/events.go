@@ -13,6 +13,9 @@ const (
 	LiveChatLeftEvent          = LiveChatBaseEvent + "chat:left"
 	LiveChatIncomingMsgEvent   = LiveChatBaseEvent + "msg:incoming"
 	LiveChatSendRoomMsgEvent   = LiveChatBaseEvent + "msg:room:send"
+	LiveChatRoomLogEvent       = LiveChatBaseEvent + "msg:room:log"
 	LiveChatSendDirectMsgEvent = LiveChatBaseEvent + "msg:dm:send"
+	LiveChatDirectLogEvent     = LiveChatBaseEvent + "msg:dm:log"
 	LiveChatErrorMsgEvent      = LiveChatBaseEvent + "error"
+	LiveChatMsgLogEvent        = LiveChatBaseEvent + "msg:log"
 )

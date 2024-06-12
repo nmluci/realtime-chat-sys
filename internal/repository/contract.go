@@ -14,9 +14,12 @@ type Repository interface {
 	InsertUser(context.Context, *model.User) error
 
 	// ----- Users
-	FindRooms(context.Context, *indto.ChatRoomParams) ([]*model.ChatRoom, error)
 	FindRoom(context.Context, *indto.ChatRoomParams) (*model.ChatRoom, error)
 	CreateRoom(context.Context, *model.ChatRoom) error
+
+	// ----- Message
+	FindChatHistory(context.Context, *indto.ChatHistoryParams) ([]*model.ChatHistory, error)
+	InsertChatHistory(context.Context, *model.ChatHistory) error
 }
 
 type repository struct {

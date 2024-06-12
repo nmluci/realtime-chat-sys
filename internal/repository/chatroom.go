@@ -78,21 +78,3 @@ func (r *repository) CreateRoom(ctx context.Context, params *model.ChatRoom) (er
 
 	return
 }
-
-func (r *repository) GetRoomParticipant(ctx context.Context) (err error) {
-	_ = zerolog.Ctx(ctx)
-
-	return
-}
-
-func (r *repository) AddRoomParticipant(ctx context.Context) (err error) {
-	_ = zerolog.Ctx(ctx)
-
-	return
-}
-
-func (r *repository) RemoveRoomParticipant(ctx context.Context) (err error) {
-	_ = zerolog.Ctx(ctx)
-
-	return
-}
