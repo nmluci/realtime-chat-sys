@@ -326,6 +326,44 @@ func (lc *LiveChatSocketMiddleware) Reader() {
 					Data:      incomingMessage,
 				},
 			}
+		case inconst.LiveChatSendDirectMsgEvent:
+			payload := structutil.MapToStruct[*dto.ChatDMPayload](event.Data.(map[string]any))
+
+			incomingMessage := &indto.IncomingMessage{
+				SenderID:   lc.UserID,
+				SenderName: lc.username,
+				Content:    payload.Content,
+				IsDM:       true,
+			}
+
+			recipientMeta, err := lc.repo.FindUser(lc.ctx, &indto.UserParams{Username: payload.RecipientUsername})
+			if err != nil {
+				lc.logger.Error().Err(err).Msg("failed to fetch recipient meta")
+				lc.in <- dto.LiveChatSocketEvent{
+					EventName: inconst.LiveChatErrorMsgEvent,
+					Data:      "failed to fetch recipient meta",
+				}
+				continue
+			}
+			incomingMessage.RecipientID = recipientMeta.ID
+
+			if recipientMeta == nil {
+				lc.logger.Error().Err(err).Msg("recipient doesnt existed")
+				lc.in <- dto.LiveChatSocketEvent{
+					EventName: inconst.LiveChatErrorMsgEvent,
+					Data:      "recipient doesnt exists",
+				}
+				continue
+			}
+
+			lc.hub.msgChan <- &dto.LiveChatSocketRequest{
+				SenderID:    lc.UserID,
+				RecipientID: recipientMeta.ID,
+				Event: dto.LiveChatSocketEvent{
+					EventName: inconst.LiveChatIncomingMsgEvent,
+					Data:      incomingMessage,
+				},
+			}
 		}
 	}
 }
